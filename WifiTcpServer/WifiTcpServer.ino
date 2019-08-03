@@ -13,12 +13,6 @@
 #define WIFI_AUTH LWIFI_WPA  // choose from LWIFI_OPEN, LWIFI_WPA, or LWIFI_WEP according to your WiFi AP configuration
 #define Drv LFlash
 
-/*struct WifiConfig {
-  char wifi_ap[32];
-  char wifi_password[32];
-  int wifi_auth;
-};*/
-
 void printWifiStatus();
 void bridgeConnection();
 void bluetoothConnection();
@@ -27,7 +21,6 @@ LWiFiServer server(5401);
 rgb_lcd lcd;
 String config;
 LFile configFile;
-/*WifiConfig wifiConfig;*/
 
 void setup()
 {
@@ -53,8 +46,6 @@ void setup()
         }
         wifiConfigJson[i]= 0;
         Serial.println(wifiConfigJson);
-        Serial.println(i);
-        Serial.println(configFile.size());
       } 
     }
   // keep retrying until connected to AP
