@@ -8,19 +8,22 @@
 #include <LStorage.h>
 #include <LFlash.h>
 
-#define WIFI_AP "Toronto Pearson Wi-Fi"
-#define WIFI_PASSWORD "$unWing#2012" 
 #define WIFI_AUTH LWIFI_WPA  // choose from LWIFI_OPEN, LWIFI_WPA, or LWIFI_WEP according to your WiFi AP configuration
 #define Drv LFlash
 
 void printWifiStatus();
 void bridgeConnection();
 void bluetoothConnection();
+char* parseJsonCharValue(char* json, char* key);
+int parseJsonIntValue(char* json, char* key);
 
 LWiFiServer server(5401);
 rgb_lcd lcd;
 String config;
 LFile configFile;
+char* wifi_password;
+char* wifi_ap;
+int wifi_auth;
 
 void setup()
 {
@@ -46,19 +49,31 @@ void setup()
         }
         wifiConfigJson[i]= 0;
         Serial.println(wifiConfigJson);
+        wifi_auth = parseJsonIntValue(wifiConfigJson, "wifi_auth");        
+        wifi_ap= parseJsonCharValue(wifiConfigJson, "wifi_ap");
+        wifi_password= parseJsonCharValue(wifiConfigJson, "wifi_password");        
       } 
     }
-  // keep retrying until connected to AP
-  Serial.println("Connecting to AP");
-  while (0 == LWiFi.connect(WIFI_AP, LWiFiLoginInfo(WIFI_AUTH, WIFI_PASSWORD)))
+  if(wifi_ap && wifi_password && wifi_auth>-1)
   {
-    delay(1000);
+    LWiFiEncryption lWiFiEncryption = LWIFI_OPEN;
+    if(wifi_auth==1)lWiFiEncryption = LWIFI_WPA;
+    else if(wifi_auth==1)lWiFiEncryption = LWIFI_WEP;
+    // keep retrying until connected to AP
+    Serial.println("Connecting to AP");
+    while (0 == LWiFi.connect(wifi_ap, LWiFiLoginInfo(lWiFiEncryption, wifi_password)))
+    {
+     delay(1000);
+    }
+    printWifiStatus();
+    Serial.println("Start Server");
+    server.begin();
+    Serial.println("Server Started");
   }
-
-  printWifiStatus();
-  Serial.println("Start Server");
-  server.begin();
-  Serial.println("Server Started");
+  else
+  {
+    lcd.print("INVALID AUTHENTICATION");
+  }
 }
 
 void loop()
@@ -143,4 +158,67 @@ void bluetoothConnection()
   {
     LBTServer.accept(5);
   }  
+}
+
+char* parseJsonCharValue(char* json, char* key)
+{
+  size_t jsonLength = strlen(json);
+  size_t keyLength = strlen(key);
+  char* workJson = (char*)calloc(jsonLength, sizeof(char));
+  strcpy(workJson, json);
+  for (size_t i = 0; i < jsonLength; i++)
+  {
+    if (strncmp(workJson, key, keyLength) == 0)
+    {
+      workJson = workJson + keyLength + 5;           
+      size_t valueLength = 0;
+      for (size_t k = 0; k < strlen(workJson); k++)
+      {
+        if (strncmp(workJson, "\"", 1) == 0)
+        {
+          valueLength = k;
+          break;
+        }
+        workJson++;
+      }
+      workJson = workJson - valueLength;
+      char* returnValue = (char*)calloc(valueLength+1, sizeof(char));
+      strncpy(returnValue, workJson, valueLength-1);      
+      return returnValue;
+    }
+    workJson++;
+  }
+  return NULL;
+}
+
+int parseJsonIntValue(char* json, char* key)
+{
+  size_t jsonLength = strlen(json);
+  size_t keyLength = strlen(key);
+  char* workJson = (char*)calloc(jsonLength, sizeof(char));
+  strcpy(workJson, json);
+  for (size_t i = 0; i < jsonLength; i++)
+  {
+    if (strncmp(workJson, key, keyLength) == 0)
+    {
+      workJson = workJson + keyLength + 2;
+      size_t valueLength = 0;
+      for (size_t k = 0; k < strlen(workJson); k++)
+      {
+        if (strncmp(workJson, "}", 1) == 0 || strncmp(workJson, ",", 1) == 0)
+        {
+          valueLength = k;
+          break;
+        }
+        workJson++;
+      }
+      valueLength++;
+      workJson = workJson - valueLength;
+      char* returnValue = (char*)calloc(valueLength + 1, sizeof(char));
+      strncpy(returnValue, workJson, valueLength);
+      return strtol(returnValue, &returnValue, valueLength - 1);
+    }
+    workJson++;
+  }
+  return -1;
 }
